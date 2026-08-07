@@ -2047,6 +2047,34 @@ class HermesACPAgent(acp.Agent):
             update = acp.update_agent_message_text(final_response)
             await conn.session_update(session_id, update)
 
+        # A provider/model failover changes the provenance of the answer, but
+        # ACP keeps reporting the model negotiated at session/new — an editor
+        # showing "openai-codex:gpt-5.6-terra" cannot tell that OpenRouter
+        # actually served the turn.  Emit the same notice the gateway appends
+        # (gateway.runtime_footer.format_fallback_footer) so every surface
+        # words it identically.  The agent holds this flag for the turn it
+        # answered through the fallback runtime; the next turn clears it when
+        # restore_primary_runtime's cooldown gate allows.
+        if conn and not cancelled:
+            try:
+                if bool(getattr(state.agent, "_fallback_activated", False)):
+                    from gateway.runtime_footer import format_fallback_footer
+
+                    notice = format_fallback_footer(
+                        provider=getattr(state.agent, "provider", None),
+                        model=getattr(state.agent, "model", None),
+                    )
+                    if notice:
+                        # Sent as its own chunk (the answer may already have
+                        # streamed), so carry the blank line the gateway gets
+                        # from appending to the response text — without it the
+                        # client renders "…입니다.⚠️ 폴백 중" run together.
+                        await conn.session_update(
+                            session_id, acp.update_agent_message_text(f"\n\n{notice}")
+                        )
+            except Exception:
+                logger.debug("ACP fallback notice failed", exc_info=True)
+
         # Mark this turn idle before draining queued work so recursive prompt()
         # calls can acquire the session. Queued turns are intentionally run as
         # normal follow-up user prompts, preserving role alternation and history.
