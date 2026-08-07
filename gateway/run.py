@@ -16930,6 +16930,27 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             except Exception as _footer_err:
                 logger.debug("runtime_footer build failed: %s", _footer_err)
                 _footer_line = ""
+
+            # A provider/model failover is operator-visible metadata, even
+            # when the general runtime footer remains disabled.  The agent
+            # keeps this flag true for the current turn while it is answering
+            # through the fallback runtime; the next turn restores the primary
+            # runtime when its cooldown/reset gate allows it.
+            _fallback_line = ""
+            try:
+                if bool(getattr(agent, "_fallback_activated", False)):
+                    from gateway.runtime_footer import format_fallback_footer as _fff
+
+                    _fallback_line = _fff(
+                        provider=getattr(agent, "provider", None),
+                        model=getattr(agent, "model", None) or agent_result.get("model"),
+                    )
+            except Exception as _fallback_footer_err:
+                logger.debug("fallback footer build failed: %s", _fallback_footer_err)
+            if _fallback_line:
+                _footer_line = "\n".join(
+                    part for part in (_footer_line, _fallback_line) if part
+                )
             if _footer_line and response and not agent_result.get("already_sent") and not _intentional_silence:
                 response = f"{response}\n\n{_footer_line}"
 

@@ -11,6 +11,7 @@ from gateway.runtime_footer import (
     _home_relative_cwd,
     _model_short,
     build_footer_line,
+    format_fallback_footer,
     format_runtime_footer,
     resolve_footer_config,
 )
@@ -32,6 +33,14 @@ from gateway.runtime_footer import (
 )
 def test_model_short_drops_vendor_prefix(model, expected):
     assert _model_short(model) == expected
+
+
+def test_format_fallback_footer_keeps_full_model_identity():
+    out = format_fallback_footer(
+        provider="openrouter",
+        model="openai/gpt-5.6-luna",
+    )
+    assert out == "⚠️ 폴백 중 · 실제 모델: openai/gpt-5.6-luna · 제공자: openrouter"
 
 
 def test_home_relative_cwd_collapses_home(tmp_path, monkeypatch):

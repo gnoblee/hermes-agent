@@ -53,6 +53,27 @@ def _model_short(model: Optional[str]) -> str:
     return model.rsplit("/", 1)[-1]
 
 
+def format_fallback_footer(
+    *,
+    provider: Optional[str],
+    model: Optional[str],
+) -> str:
+    """Render an always-on footer when the turn is served by a fallback.
+
+    Unlike the opt-in runtime metadata footer, this line is deliberately
+    independent of ``display.runtime_footer.enabled``: a provider/model
+    failover changes the provenance of the answer and must remain visible to
+    the operator.  Keep the model fully qualified so an OpenRouter-routed
+    model cannot be confused with a direct provider model.
+    """
+    parts = ["⚠️ 폴백 중"]
+    if model:
+        parts.append(f"실제 모델: {model}")
+    if provider:
+        parts.append(f"제공자: {provider}")
+    return _SEP.join(parts)
+
+
 def resolve_footer_config(
     user_config: dict[str, Any] | None,
     platform_key: str | None = None,
