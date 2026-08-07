@@ -602,6 +602,7 @@ class SessionManager:
 
         from run_agent import AIAgent
         from hermes_cli.config import load_config
+        from hermes_cli.fallback_config import get_fallback_chain
         from hermes_cli.runtime_provider import resolve_runtime_provider
 
         config = load_config()
@@ -630,6 +631,14 @@ class SessionManager:
             "session_id": session_id,
             "session_db": self._get_db(),
             "model": model or default_model,
+            # Without this the ACP path is the only agent-construction site
+            # that never populates ``_fallback_chain`` (cli.py, oneshot.py,
+            # tui_gateway/server.py, gateway/run.py and auxiliary_client.py all
+            # pass it), so ``try_activate_fallback`` returns False on the first
+            # call and a primary-provider 429 surfaces raw to the editor after
+            # ``agent.api_max_retries`` instead of rotating to the configured
+            # ``fallback_providers`` chain.
+            "fallback_model": get_fallback_chain(config),
         }
 
         try:
